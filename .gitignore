@@ -1,0 +1,27 @@
+# IDE
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Environment
+.env
+backend/.env
+frontend/.env
+*.local
+
+# Build
+dist/
+frontend/dist/
+build/
+
+# Credentials
+firebase-admin.json
+backend/firebase-admin.json
+
+# System
+.DS_Store
+Thumbs.db

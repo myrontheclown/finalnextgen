@@ -1,0 +1,10 @@
+{
+  "name": "testgen-ai-root",
+  "version": "1.0.0",
+  "description": "Root package runner to start frontend and backend simultaneously",
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "dev": "npx concurrently \"npm run dev:backend\" \"npm run dev:frontend\""
+  }
+}

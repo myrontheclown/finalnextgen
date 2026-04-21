@@ -1,0 +1,5 @@
+Endpoint,Method,Payload,ExpectedStatus
+https://jsonplaceholder.typicode.com/users,GET,,200
+https://jsonplaceholder.typicode.com/users,POST,"{""name"":""John"",""email"":""test@test.com""}",201
+https://jsonplaceholder.typicode.com/users/999,GET,,404
+https://jsonplaceholder.typicode.com/invalid-route,GET,,404
