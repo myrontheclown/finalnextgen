@@ -30,6 +30,14 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col relative">
       {/* Dynamic Background Elements */}
       <div className="pixel-overlay" />
+      <div className="page-edge-glow" />
+      
+      {/* Corner Glass Orbs */}
+      <div className="corner-glass top-left-orb" />
+      <div className="corner-glass top-right-orb" />
+      <div className="corner-glass bottom-left-orb" />
+      <div className="corner-glass bottom-right-orb" />
+
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         {particles.map(p => (
           <div 
@@ -44,17 +52,14 @@ export default function Layout() {
             }}
           />
         ))}
-        {/* Soft Radial Orbs */}
-        <div className="absolute top-[10%] left-[10%] w-[40rem] h-[40rem] bg-primary/10 rounded-full blur-[120px] animate-glow" />
-        <div className="absolute bottom-[10%] right-[10%] w-[30rem] h-[30rem] bg-accent/10 rounded-full blur-[100px] animate-glow" style={{ animationDelay: '-1.5s' }} />
       </div>
 
       {/* Navbar */}
       <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 group cursor-pointer">
-            <div className="p-2.5 bg-primary/20 rounded-2xl border border-primary/40 group-hover:shadow-[0_0_30px_rgba(0,255,157,0.7)] transition-all duration-500">
-              <Activity className="h-6 w-6 text-primary filter drop-shadow-[0_0_8px_rgba(0,255,157,0.8)]" />
+            <div className="p-2.5 bg-primary/20 rounded-2xl border border-primary/40 group-hover:shadow-[0_0_30px_rgba(139,92,246,0.5)] transition-all duration-500">
+              <Activity className="h-6 w-6 text-primary filter drop-shadow-[0_0_8px_rgba(139,92,246,0.6)]" />
             </div>
             <div>
               <h1 className="text-2xl font-black glow-text-primary uppercase tracking-tighter leading-none">
@@ -90,7 +95,7 @@ export default function Layout() {
           </nav>
 
           <div className="flex items-center gap-4">
-             <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(0,255,157,0.8)]" />
+             <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(139,92,246,0.8)]" />
              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">System Ready</span>
           </div>
         </div>

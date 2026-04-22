@@ -1,5 +1,8 @@
-Endpoint,Method,Payload,ExpectedStatus
-https://jsonplaceholder.typicode.com/users,GET,,200
-https://jsonplaceholder.typicode.com/users,POST,"{""name"":""John"",""email"":""test@test.com""}",201
-https://jsonplaceholder.typicode.com/users/999,GET,,404
-https://jsonplaceholder.typicode.com/invalid-route,GET,,404
+test_case,description
+Get all users,Check if users list is returned successfully
+Create user valid,Create user with valid name and email
+Create user missing email,Try creating user without email
+Create user invalid age,Send string instead of number for age
+Get user by id,Fetch user using valid ID
+Get user invalid id,Fetch user using invalid ID
+Check API status,Verify API is running
