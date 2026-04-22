@@ -1,276 +1,269 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { FileJson, FileSpreadsheet, ArrowRight, Loader2, Sparkles, Activity, ShieldCheck, Database, Link, CheckCircle, Globe, Zap, Settings, Command } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import axios from "axios";
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
-const API_BASE = "http://localhost:5001/api";
-
-export default function UploadPage() {
-  const [swaggerFile, setSwaggerFile] = useState(null);
-  const [swaggerUrl, setSwaggerUrl] = useState("");
-  const [excelFile, setExcelFile] = useState(null);
-  const [excelUrl, setExcelUrl] = useState("");
-  const [uploadMode, setUploadMode] = useState("file"); // Spec mode
-  const [excelUploadMode, setExcelUploadMode] = useState("file"); // Excel mode
-  const [isUploading, setIsUploading] = useState(false);
-  const [isDemoLoading, setIsDemoLoading] = useState(false);
-
-  // Advanced Settings
-  const [settings, setSettings] = useState({
-    deepAi: true,
-    strictSla: false,
-    bypassSsl: true
-  });
-
+const UploadPage = () => {
+  const [step, setStep] = useState(1);
+  const [specUrl, setSpecUrl] = useState('https://petstore.swagger.io/v2/swagger.json');
+  const [specFile, setSpecFile] = useState(null);
+  const [testFile, setTestFile] = useState(null);
+  const [parsedSpec, setParsedSpec] = useState(null);
+  const [genCounts, setGenCounts] = useState({ auto: 0, csv: 0 });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [mode, setMode] = useState('hybrid');
   const navigate = useNavigate();
 
-  const handleSwaggerUpload = (e) => {
-    if (e.target.files && e.target.files[0]) setSwaggerFile(e.target.files[0]);
-  };
-
-  const handleExcelUpload = (e) => {
-    if (e.target.files && e.target.files[0]) setExcelFile(e.target.files[0]);
-  };
-
-  const toggleSetting = (key) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const loadDemo = async () => {
-    setIsDemoLoading(true);
+  // 1. Ingest Spec
+  const handleAnalyze = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await axios.post(`${API_BASE}/load-demo`);
-      sessionStorage.setItem("specData", JSON.stringify(res.data.spec));
-      sessionStorage.setItem("testData", JSON.stringify(res.data.tests));
-      sessionStorage.setItem("sandboxConfig", JSON.stringify(settings));
-      navigate("/dashboard");
+      const formData = new FormData();
+      if (specFile) formData.append('spec', specFile);
+      else formData.append('specUrl', specUrl);
+
+      const response = await axios.post('http://localhost:5001/api/upload-spec', formData);
+      setParsedSpec({ ...response.data, url: specUrl });
+      setStep(2);
     } catch (err) {
-      alert("Demo load failed. Check server connection.");
+      setError(err.response?.data?.error || "Failed to analyze spec. Check the URL or file.");
     } finally {
-      setIsDemoLoading(false);
+      setLoading(false);
     }
   };
 
-  const submitFiles = async () => {
-    const isSpecReady = (uploadMode === "file" && swaggerFile) || (uploadMode === "url" && swaggerUrl);
-    const isExcelReady = (excelUploadMode === "file" && excelFile) || (excelUploadMode === "url" && excelUrl);
+  // 2. Discover & Map
+  const handleNextToIntelligence = () => {
+    setStep(3);
+  };
 
-    if (!isSpecReady || !isExcelReady) {
-      return alert("Complete all requirements to proceed.");
-    }
-
-    setIsUploading(true);
+  // 3. Trigger Intelligence & Execute
+  const handleGenerateAndRun = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      // 1. Process Spec
-      let specRes;
-      if (uploadMode === "file") {
-        const swaggerData = new FormData();
-        swaggerData.append("spec", swaggerFile);
-        specRes = await axios.post(`${API_BASE}/upload-spec`, swaggerData);
-      } else {
-        specRes = await axios.post(`${API_BASE}/upload-spec`, { specUrl: swaggerUrl });
-      }
+      const formData = new FormData();
+      formData.append('specUrl', parsedSpec.url);
+      formData.append('mode', mode);
+      if (testFile) formData.append('tests', testFile); // CSV or JSON
 
-      // 2. Process Excel
-      let excelRes;
-      if (excelUploadMode === "file") {
-        const excelData = new FormData();
-        excelData.append("tests", excelFile);
-        excelRes = await axios.post(`${API_BASE}/upload-excel`, excelData);
-      } else {
-        excelRes = await axios.post(`${API_BASE}/upload-excel`, { excelUrl: excelUrl });
-      }
+      const response = await axios.post('http://localhost:5001/api/auto-generate', formData);
 
-      sessionStorage.setItem("specData", JSON.stringify(specRes.data));
-      sessionStorage.setItem("testData", JSON.stringify(excelRes.data));
-      sessionStorage.setItem("sandboxConfig", JSON.stringify(settings));
-      navigate("/dashboard");
+      // Save full report to localStorage for results page
+      localStorage.setItem('lastTestReport', JSON.stringify(response.data));
+
+      // Move to step 4 briefly then navigate
+      setGenCounts({ auto: response.data.autoCount, csv: response.data.csvCount });
+      setStep(4);
+
+      setTimeout(() => {
+        navigate('/results');
+      }, 1500);
+
     } catch (err) {
-      console.error(err);
-      const errorUrl = err.config?.url || 'Unknown URL';
-      const errorBody = err.response?.data ? (typeof err.response.data === 'string' ? err.response.data.substring(0, 50) : JSON.stringify(err.response.data)) : 'No body';
-      const errMsg = err.response?.data?.error || `${err.message} (URL: ${errorUrl}) [Body: ${errorBody}]`;
-      alert(`NEURAL BRIDGE ERROR: ${errMsg}`);
+      setError("Execution failed. Ensure backend is running and spec is reachable.");
     } finally {
-      setIsUploading(false);
+      setLoading(false);
     }
-  };
-
-  const floatingVariants = {
-    animate: {
-      y: [0, -15, 0],
-      transition: { duration: 4, repeat: Infinity, ease: "easeInOut" }
-    }
-  };
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } }
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }} className="min-h-[85vh] flex flex-col lg:flex-row gap-12 items-center justify-between max-w-7xl mx-auto w-full pt-10 px-4">
-
-      {/* 1. HERO SECTION */}
-      <div className="w-full lg:w-[50%] relative flex flex-col justify-center space-y-8 pr-4">
-        <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }}>
-          <div className="flex items-center gap-3 mb-4">
-            <span className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full text-xs font-black tracking-widest border border-blue-500/20 uppercase">v2.4 Neural Core</span>
-            <span className="bg-purple-500/10 text-purple-400 px-3 py-1 rounded-full text-xs font-black tracking-widest border border-purple-500/20 uppercase">Stable Build</span>
-          </div>
-          <h1 className="text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.05] mb-6">
-            Automate Your<br />
-            <span className="glow-text">API Intelligence.</span>
+    <div className="min-h-screen bg-[#0a0a0c] text-white p-8 font-['Inter']">
+      <div className="max-w-5xl mx-auto">
+        <header className="mb-12 text-center">
+          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            TestGen AI Bridge
           </h1>
-          <p className="text-xl text-slate-400 font-medium leading-relaxed max-w-md mb-8">
-            Zero-config API testing with AI-powered failure mapping and heuristic risk scoring.
-          </p>
+          <p className="text-gray-400 text-xl tracking-tight">Step-by-Step Autonomous API Testing</p>
+        </header>
 
-          <motion.button
-            whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(59, 130, 246, 0.4)" }}
-            whileTap={{ scale: 0.95 }}
-            onClick={loadDemo}
-            className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-white font-bold hover:bg-white/10 transition-all group"
-          >
-            {isDemoLoading ? <Loader2 className="animate-spin w-5 h-5" /> : <Zap className="w-5 h-5 text-yellow-400 fill-yellow-400" />}
-            {isDemoLoading ? "LOAD SEQUENCE STARTING..." : "QUICKSTART DEMO MODE"}
-            <Command className="w-4 h-4 opacity-50 group-hover:translate-x-1 transition-transform" />
-          </motion.button>
-        </motion.div>
+        {/* Wizard Progress Bar */}
+        <div className="flex items-center justify-between mb-12 max-w-3xl mx-auto">
+          {[1, 2, 3, 4].map((s) => (
+            <div key={s} className="flex items-center flex-1 last:flex-none">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all duration-500 ${step >= s ? 'bg-blue-600 border-blue-500 shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'bg-black/40 border-white/10 text-gray-500'
+                }`}>
+                {step > s ? '✓' : s}
+              </div>
+              {s < 4 && <div className={`flex-1 h-1 mx-4 rounded-full transition-all duration-500 ${step > s ? 'bg-blue-600' : 'bg-white/5'}`} />}
+            </div>
+          ))}
+        </div>
 
-        {/* Floating elements confined to left */}
-        <div className="absolute inset-0 z-[-1] pointer-events-none overflow-hidden">
-          <motion.div variants={floatingVariants} animate="animate" className="absolute top-[10%] left-[20%] glass-panel p-4 rounded-2xl border-cyan-500/30 opacity-40">
-            <Database className="w-8 h-8 text-cyan-400" />
-          </motion.div>
-          <motion.div variants={floatingVariants} animate="animate" transition={{ delay: 1 }} className="absolute bottom-[20%] left-[40%] glass-panel p-4 rounded-2xl border-purple-500/30 opacity-40">
-            <Activity className="w-8 h-8 text-purple-400" />
-          </motion.div>
+        <div className="bg-[#16161a] rounded-3xl p-8 border border-white/5 shadow-2xl relative overflow-hidden">
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl animate-in fade-in zoom-in duration-300">
+              {error}
+            </div>
+          )}
+
+          {/* STEP 1: INGEST */}
+          {step === 1 && (
+            <div className="animate-in slide-in-from-right-8 fade-in duration-500">
+              <h2 className="text-3xl font-bold mb-2">Step 1: Ingest Specification</h2>
+              <p className="text-gray-400 mb-8">Provide your OpenAPI/Swagger definition to begin discovery.</p>
+
+              <div className="flex gap-4 p-2 bg-black/40 rounded-2xl border border-white/10 mb-8">
+                <input
+                  type="text"
+                  className="flex-1 bg-transparent px-4 py-3 focus:outline-none"
+                  placeholder="Paste Swagger JSON URL"
+                  value={specUrl}
+                  onChange={(e) => setSpecUrl(e.target.value)}
+                />
+                <button
+                  onClick={handleAnalyze}
+                  disabled={loading}
+                  className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-all disabled:opacity-50"
+                >
+                  {loading ? 'Analyzing...' : 'Analyze Spec'}
+                </button>
+              </div>
+
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+                <div className="relative bg-[#1a1a1e] p-10 rounded-2xl border border-white/10 text-center border-dashed cursor-pointer">
+                  <p className="text-gray-400">Or drag and drop your Spec (JSON/YAML) here</p>
+                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setSpecFile(e.target.files[0])} />
+                  {specFile && <p className="text-blue-400 mt-2 font-mono text-sm">Selected: {specFile.name}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: DISCOVERY */}
+          {step === 2 && parsedSpec && (
+            <div className="animate-in slide-in-from-right-8 fade-in duration-500">
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h2 className="text-3xl font-bold mb-2">Step 2: Endpoint Discovery</h2>
+                  <p className="text-gray-400">Map and index the API structure for semantic testing.</p>
+                </div>
+                <div className="bg-blue-500/10 text-blue-400 px-4 py-2 rounded-lg border border-blue-500/20 text-sm font-mono">
+                  {parsedSpec.baseUrl}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6 mb-8">
+                <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+                  <p className="text-gray-500 text-sm mb-1 uppercase tracking-widest">Endpoints Found</p>
+                  <p className="text-4xl font-black">{parsedSpec.endpoints.length}</p>
+                </div>
+                <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+                  <p className="text-gray-500 text-sm mb-1 uppercase tracking-widest">Schemas Mapped</p>
+                  <p className="text-4xl font-black">{Object.keys(parsedSpec.schemas || {}).length}</p>
+                </div>
+                <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+                  <p className="text-gray-500 text-sm mb-1 uppercase tracking-widest">Auth Type</p>
+                  <p className="text-xl font-bold text-blue-400">{parsedSpec.authType || "API_KEY / HEADER"}</p>
+                </div>
+              </div>
+
+              <div className="bg-black/40 rounded-2xl border border-white/5 p-6 mb-8 max-h-60 overflow-y-auto">
+                <table className="w-full text-left">
+                  <thead className="text-xs text-gray-500 uppercase border-b border-white/10">
+                    <tr>
+                      <th className="pb-3">Method</th>
+                      <th className="pb-3">Path</th>
+                      <th className="pb-3 text-right">Semantic Index</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-sm">
+                    {parsedSpec.endpoints.slice(0, 10).map((ep, i) => (
+                      <tr key={i}>
+                        <td className="py-3"><span className={`px-2 py-1 rounded text-xs font-bold ${ep.method === 'GET' ? 'bg-green-500/20 text-green-400' :
+                            ep.method === 'POST' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400'
+                          }`}>{ep.method}</span></td>
+                        <td className="py-3 font-mono text-gray-300">{ep.path}</td>
+                        <td className="py-3 text-right text-gray-500 italic">{ep.summary || "No summary"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <button
+                onClick={handleNextToIntelligence}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black text-lg transition-all"
+              >
+                PROCEED TO INTELLIGENCE
+              </button>
+            </div>
+          )}
+
+          {/* STEP 3: INTELLIGENCE */}
+          {step === 3 && (
+            <div className="animate-in slide-in-from-right-8 fade-in duration-500 text-center py-12">
+              <h2 className="text-4xl font-black mb-4">Step 3: Intelligence Generation</h2>
+              <p className="text-gray-400 mb-12 max-w-2xl mx-auto">
+                Trigger the AI to generate schema-driven test vectors and map your natural language test cases.
+              </p>
+
+              <div className="grid grid-cols-3 gap-6 max-w-4xl mx-auto mb-12">
+                <div onClick={() => setMode('auto')} className={`cursor-pointer p-6 rounded-3xl border-2 transition-all ${mode === 'auto' ? 'bg-blue-600/10 border-blue-500' : 'bg-black/40 border-white/5'}`}>
+                  <p className="text-xl font-bold mb-2">Fully Autonomous</p>
+                  <p className="text-xs text-gray-500">Pure schema discovery and fuzzing.</p>
+                </div>
+                <div onClick={() => setMode('hybrid')} className={`cursor-pointer p-6 rounded-3xl border-2 transition-all ${mode === 'hybrid' ? 'bg-blue-600/10 border-blue-500' : 'bg-black/40 border-white/5'}`}>
+                  <p className="text-xl font-bold mb-2">Hybrid Intelligence</p>
+                  <p className="text-xs text-gray-500">Auto + Natural Language Mapping.</p>
+                </div>
+                <div onClick={() => setMode('nlp')} className={`cursor-pointer p-6 rounded-3xl border-2 transition-all ${mode === 'nlp' ? 'bg-purple-600/10 border-purple-500' : 'bg-black/40 border-white/5'}`}>
+                  <p className="text-xl font-bold mb-2">NLP Only</p>
+                  <p className="text-xs text-gray-500">Only User-Entered Prompts.</p>
+                </div>
+              </div>
+
+              {(mode === 'hybrid' || mode === 'nlp') && (
+                <div className="max-w-2xl mx-auto mb-12">
+                  <div className="relative group">
+                    <div className={`absolute -inset-0.5 bg-gradient-to-r ${mode === 'nlp' ? 'from-purple-600 to-pink-600' : 'from-blue-600 to-purple-600'} rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500`}></div>
+                    <div className="relative bg-black/40 p-6 rounded-2xl border border-white/10 text-center border-dashed cursor-pointer">
+                      <p className="text-gray-400 mb-2">Upload Test Prompts (.csv, .xlsx, .json)</p>
+                      <input 
+                        type="file" 
+                        accept=".csv,.xlsx,.json"
+                        className="absolute inset-0 opacity-0 cursor-pointer" 
+                        onChange={(e) => setTestFile(e.target.files[0])} 
+                      />
+                      {testFile ? (
+                        <p className="text-green-400 font-mono text-sm">Selected: {testFile.name}</p>
+                      ) : (
+                        <p className="text-gray-600 text-xs">Required: Upload prompts to map to endpoints</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleGenerateAndRun}
+                disabled={loading}
+                className="px-12 py-5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl font-black text-xl shadow-2xl hover:scale-105 transition-all disabled:opacity-50"
+              >
+                {loading ? 'GENERATING VECTORS...' : 'LAUNCH NEURAL SUITE'}
+              </button>
+            </div>
+          )}
+
+          {/* STEP 4: LAUNCH */}
+          {step === 4 && (
+            <div className="animate-in zoom-in fade-in duration-500 text-center py-20">
+              <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_30px_rgba(34,197,94,0.4)]">
+                <span className="text-4xl">✓</span>
+              </div>
+              <h2 className="text-4xl font-black mb-4">Neural Suite Dispatched</h2>
+              <p className="text-gray-400 text-xl">
+                Generated <span className="text-white font-bold">{genCounts.auto}</span> auto-tests and mapped <span className="text-white font-bold">{genCounts.csv}</span> NLP prompts.
+              </p>
+              <p className="mt-8 text-blue-400 animate-pulse">Navigating to Dashboard...</p>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* 2. UPLOAD/URL CARDS */}
-      <motion.div variants={containerVariants} initial="hidden" animate="show" className="w-full lg:w-[50%] flex flex-col space-y-6">
-
-        {/* Spec Card: URL or File */}
-        <div className="glass-panel p-1 border-white/5 flex flex-col">
-          <div className="flex bg-black/20 p-1 rounded-t-xl overflow-hidden">
-            <button onClick={() => setUploadMode("file")} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-lg ${uploadMode === 'file' ? 'bg-blue-500/20 text-blue-400 shadow-[inset_0_0_15px_rgba(59,130,246,0.1)]' : 'text-slate-500 hover:text-slate-300'}`}>Local File</button>
-            <button onClick={() => setUploadMode("url")} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-lg ${uploadMode === 'url' ? 'bg-blue-500/20 text-blue-400 shadow-[inset_0_0_15px_rgba(59,130,246,0.1)]' : 'text-slate-500 hover:text-slate-300'}`}>Live URL</button>
-          </div>
-
-          <div className="p-6">
-            {uploadMode === "file" ? (
-              <label className="flex items-center justify-between cursor-pointer group">
-                <div className="flex items-center gap-5">
-                  <div className="bg-blue-500/10 p-3 rounded-xl border border-blue-500/20 group-hover:bg-blue-500/20 transition-colors">
-                    <FileJson className="h-6 w-6 text-blue-400" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-white uppercase text-xs tracking-widest mb-1">OpenAPI Schema</span>
-                    <span className="text-xs text-slate-500">{swaggerFile ? swaggerFile.name : "Select .json spec file"}</span>
-                  </div>
-                </div>
-                {swaggerFile && <CheckCircle className="w-5 h-5 text-green-400 drop-shadow-[0_0_8px_#22c55e]" />}
-                <input type="file" accept=".json" className="hidden" onChange={handleSwaggerUpload} />
-              </label>
-            ) : (
-              <div className="flex items-center gap-4 group">
-                <div className="bg-blue-500/10 p-3 rounded-xl border border-blue-500/20">
-                  <Globe className="h-6 w-6 text-blue-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="https://petstore.swagger.io/v2/swagger.json"
-                  value={swaggerUrl}
-                  onChange={(e) => setSwaggerUrl(e.target.value)}
-                  className="flex-1 bg-transparent border-b border-white/10 outline-none text-sm text-white placeholder-slate-600 py-2 focus:border-blue-500 transition-colors"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Excel Card: URL or File */}
-        <div className="glass-panel p-1 border-white/5 flex flex-col">
-          <div className="flex bg-black/20 p-1 rounded-t-xl overflow-hidden">
-            <button onClick={() => setExcelUploadMode("file")} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-lg ${excelUploadMode === 'file' ? 'bg-purple-500/20 text-purple-400 shadow-[inset_0_0_15px_rgba(147,51,234,0.1)]' : 'text-slate-500 hover:text-slate-300'}`}>Local File</button>
-            <button onClick={() => setExcelUploadMode("url")} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-lg ${excelUploadMode === 'url' ? 'bg-purple-500/20 text-purple-400 shadow-[inset_0_0_15px_rgba(147,51,234,0.1)]' : 'text-slate-500 hover:text-slate-300'}`}>Live URL</button>
-          </div>
-
-          <div className="p-6">
-            {excelUploadMode === "file" ? (
-              <label className="flex items-center justify-between cursor-pointer group">
-                <div className="flex items-center gap-5">
-                  <div className="bg-purple-500/10 p-3 rounded-xl border border-purple-500/20 group-hover:bg-purple-500/20 transition-colors">
-                    <FileSpreadsheet className="h-6 w-6 text-purple-400" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-white uppercase text-xs tracking-widest mb-1">Test Array Repository</span>
-                    <span className="text-xs text-slate-500">{excelFile ? excelFile.name : "Select .xlsx or .csv data"}</span>
-                  </div>
-                </div>
-                {excelFile && <CheckCircle className="w-5 h-5 text-green-400 drop-shadow-[0_0_8px_#22c55e]" />}
-                <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={handleExcelUpload} />
-              </label>
-            ) : (
-              <div className="flex items-center gap-4 group">
-                <div className="bg-purple-500/10 p-3 rounded-xl border border-purple-500/20">
-                  <Globe className="h-6 w-6 text-purple-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="https://example.com/tests.csv"
-                  value={excelUrl}
-                  onChange={(e) => setExcelUrl(e.target.value)}
-                  className="flex-1 bg-transparent border-b border-white/10 outline-none text-sm text-white placeholder-slate-600 py-2 focus:border-purple-500 transition-colors"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ADVANCED SETTINGS PANEL */}
-        <div className="glass-panel p-5 space-y-4 border-white/5 bg-black/10">
-          <h4 className="text-[10px] uppercase font-black tracking-[0.2em] text-slate-500 flex items-center gap-2 mb-2">
-            <Settings className="w-3 h-3" /> Sandbox Environment Config
-          </h4>
-          <div className="flex items-center justify-between group cursor-pointer" onClick={() => toggleSetting('deepAi')}>
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-slate-300">Deep AI Tracing</span>
-              <span className="text-[10px] text-slate-500 uppercase tracking-tighter">Heuristic risk scoring enabled</span>
-            </div>
-            <div className={`w-8 h-4 rounded-full relative transition-colors ${settings.deepAi ? 'bg-blue-500' : 'bg-slate-800'}`}>
-              <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${settings.deepAi ? 'left-4.5' : 'left-0.5'}`}></div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between group cursor-pointer" onClick={() => toggleSetting('strictSla')}>
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-slate-300">Strict SLA Enforcement</span>
-              <span className="text-[10px] text-slate-500 uppercase tracking-tighter">Flag vectors exceeding 300ms</span>
-            </div>
-            <div className={`w-8 h-4 rounded-full relative transition-colors ${settings.strictSla ? 'bg-blue-500' : 'bg-slate-800'}`}>
-              <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${settings.strictSla ? 'left-4.5' : 'left-0.5'}`}></div>
-            </div>
-          </div>
-        </div>
-
-        {/* PROCEED BUTTON */}
-        <motion.button
-          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-          onClick={submitFiles}
-          disabled={((uploadMode === "file" && !swaggerFile) || (uploadMode === "url" && !swaggerUrl)) || ((excelUploadMode === "file" && !excelFile) || (excelUploadMode === "url" && !excelUrl)) || isUploading}
-          className="w-full px-8 py-5 rounded-2xl text-lg flex items-center justify-center gap-3 transition-all disabled:opacity-30 disabled:grayscale glow-btn group"
-        >
-          {isUploading ? (
-            <><Loader2 className="w-5 h-5 animate-spin" /> ESTABLISHING BRIDGES...</>
-          ) : (
-            <><Sparkles className="w-5 h-5" /> INITIALIZE DASHBOARD <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform" /></>
-          )}
-        </motion.button>
-
-      </motion.div>
-    </motion.div>
+    </div>
   );
-}
+};
+
+export default UploadPage;

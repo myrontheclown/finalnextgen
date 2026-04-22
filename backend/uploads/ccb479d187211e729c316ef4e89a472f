@@ -1,0 +1,10 @@
+User should login successfully
+Login should fail with incorrect password
+Fetch pet by valid ID
+Fetch pet with invalid ID should fail
+Add new pet successfully
+Add pet with missing name should fail
+Place order successfully
+Place order with missing fields should fail
+Verify authentication credentials
+Retrieve unknown resource should not be mapped
