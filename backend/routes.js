@@ -72,8 +72,38 @@ router.post('/auto-generate', upload.single('tests'), async (req, res) => {
       allTestCases = [...autoTestCases, ...csvTestCases];
     }
 
-    // 4. Execute
-    const context = {};
+    // 4. Execution Prep: Dependency Detection
+    allTestCases = allTestCases.map(test => {
+      const ep = test.endpoint || "";
+      const method = (test.method || "").toUpperCase();
+      const meta = { produces: [], consumes: [] };
+
+      if (ep.includes("/user") && method === "POST") meta.produces.push("username");
+      if (ep.includes("{username}")) meta.consumes.push("username");
+
+      if (ep.includes("/store/order") && method === "POST") meta.produces.push("orderId");
+      if (ep.includes("{orderId}")) meta.consumes.push("orderId");
+
+      if (ep.includes("{petId}")) meta.consumes.push("petId");
+
+      return { ...test, meta };
+    });
+
+    // 5. Execution Prep: Test Ordering
+    allTestCases.sort((a, b) => {
+      const aConsumes = a.meta && a.meta.consumes.length > 0;
+      const bConsumes = b.meta && b.meta.consumes.length > 0;
+      if (aConsumes && !bConsumes) return 1;
+      if (!aConsumes && bConsumes) return -1;
+      return 0;
+    });
+
+    // 6. Execute
+    const context = {
+      username: "testUser",
+      petId: 1,
+      orderId: 1
+    };
     const validationResults = [];
     for (const test of allTestCases) {
       if (test.status === "UNMAPPED") {
