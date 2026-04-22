@@ -12,10 +12,17 @@ function tokenize(text) {
   return text.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(t => t.length > 1);
 }
 
-// STEP 1 - INTENT STRUCTURE NORMALIZATION
+// ---------------- INTENT NORMALIZATION ----------------
 function ensureMethod(intent) {
   if (!intent.httpMethod) {
-    const map = { login: 'GET', fetch: 'GET', create: 'POST', update: 'PUT', delete: 'DELETE', upload: 'POST' };
+    const map = {
+      login: 'GET',
+      fetch: 'GET',
+      create: 'POST',
+      update: 'PUT',
+      delete: 'DELETE',
+      upload: 'POST'
+    };
     intent.httpMethod = map[intent.action] || 'GET';
   }
   return intent;
@@ -23,17 +30,11 @@ function ensureMethod(intent) {
 
 async function normalizeWithAI(testCase) {
   if (!openai) return null;
+
   try {
-    const prompt = `You are an API Test Intent Normalizer.
-Your job is to convert natural language test cases into structured intent for API testing.
-You MUST return ONLY valid JSON. No explanations.
+    const prompt = `You convert API test sentences into structured intent.
 
----
-INPUT:
-"${testCase}"
-
----
-OUTPUT FORMAT:
+Return ONLY JSON:
 {
   "action": string,
   "entity": string,
@@ -42,13 +43,16 @@ OUTPUT FORMAT:
   "confidence": "HIGH" | "MEDIUM" | "LOW"
 }
 
----
-RULES:
-1. ACTION DETECTION: login, authenticate, sign in -> "login"; register, signup, create user -> "create"; fetch, get, retrieve, view -> "fetch"; update, modify, change -> "update"; delete, remove -> "delete"; upload -> "upload"; place order, create order -> "create"
-2. ENTITY DETECTION: user, account -> "user"; pet, animal -> "pet"; order -> "order"; store, inventory -> "store". If unclear -> "unknown"
-3. HTTP METHOD MAPPING: login/fetch -> GET, create/upload -> POST, update -> PUT, delete -> DELETE
-4. NEGATIVE DETECTION: fail, invalid, incorrect, without, missing, unauthorized, error -> isNegative = true
-5. CONFIDENCE: HIGH (clear), MEDIUM (partial), LOW (vague)`;
+Rules:
+- login/authenticate → login
+- create/add/register → create
+- fetch/get/retrieve → fetch
+- update/modify → update
+- delete/remove → delete
+- entities: user, pet, order, store
+- negative: fail, invalid, incorrect, missing → true
+
+Input: "${testCase}"`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -56,211 +60,192 @@ RULES:
       temperature: 0,
       response_format: { type: "json_object" }
     });
+
     return ensureMethod(JSON.parse(response.choices[0].message.content));
-  } catch (err) {
+  } catch {
     return null;
   }
 }
 
-// STEP 8 - SAFE FALLBACK
+// ---------------- FALLBACK INTENT ----------------
 function extractIntent(prompt) {
   const text = prompt.toLowerCase();
-  const tokens = tokenize(text);
-  
-  // Mapping Rules
+
   const actionMap = {
-    login: 'login', authenticate: 'login', 'sign in': 'login',
-    register: 'create', signup: 'create', create: 'create',
-    fetch: 'fetch', get: 'fetch', retrieve: 'fetch', view: 'fetch',
-    update: 'update', modify: 'update', change: 'update',
-    delete: 'delete', remove: 'delete',
-    upload: 'upload', 'place order': 'create'
+    login: 'login',
+    authenticate: 'login',
+    register: 'create',
+    create: 'create',
+    add: 'create',
+    fetch: 'fetch',
+    get: 'fetch',
+    retrieve: 'fetch',
+    update: 'update',
+    delete: 'delete',
+    remove: 'delete',
+    upload: 'upload',
+    'place order': 'create'
   };
 
   const entityMap = {
-    user: 'user', account: 'user',
-    pet: 'pet', animal: 'pet',
+    user: 'user',
+    pet: 'pet',
     order: 'order',
-    store: 'store', inventory: 'store'
+    store: 'store'
   };
 
   let action = 'unknown';
-  for (const [key, val] of Object.entries(actionMap)) {
-    if (text.includes(key)) { action = val; break; }
+  for (const key in actionMap) {
+    if (text.includes(key)) {
+      action = actionMap[key];
+      break;
+    }
   }
 
   let entity = 'unknown';
-  for (const [key, val] of Object.entries(entityMap)) {
-    if (text.includes(key)) { entity = val; break; }
+  for (const key in entityMap) {
+    if (text.includes(key)) {
+      entity = entityMap[key];
+      break;
+    }
   }
 
-  const negativePatterns = [/fail/, /invalid/, /incorrect/, /without/, /missing/, /unauthorized/, /error/];
-  const isNegative = negativePatterns.some(p => p.test(text));
-
-  const httpMethodMap = {
-    login: 'GET', fetch: 'GET', create: 'POST', upload: 'POST', update: 'PUT', delete: 'DELETE'
-  };
+  const isNegative = /fail|invalid|incorrect|missing|error/.test(text);
 
   return ensureMethod({
     action,
     entity,
-    httpMethod: httpMethodMap[action] || 'GET',
     isNegative,
     confidence: (action !== 'unknown' && entity !== 'unknown') ? 'HIGH' : 'LOW'
   });
 }
 
-// STEP 2 - ADD HARD RULE ENGINE
+// ---------------- HARD RULE ENGINE ----------------
 function applyHardRules(intent, endpoints) {
   const { action, entity } = intent;
-  let targetPath = null;
-  let targetMethod = null;
 
-  if (action === 'login') { targetPath = '/user/login'; targetMethod = 'GET'; }
-  else if (action === 'fetch' && entity === 'user') { targetPath = '/user/{username}'; targetMethod = 'GET'; }
-  else if (action === 'create' && entity === 'user') { targetPath = '/user'; targetMethod = 'POST'; }
-  else if (action === 'create' && entity === 'pet') { targetPath = '/pet'; targetMethod = 'POST'; }
-  else if (action === 'fetch' && entity === 'pet') { targetPath = '/pet/{petId}'; targetMethod = 'GET'; }
-  else if (action === 'create' && entity === 'order') { targetPath = '/store/order'; targetMethod = 'POST'; }
+  const rules = [
+    { action: 'login', path: '/user/login', method: 'GET' },
+    { action: 'create', entity: 'user', path: '/user', method: 'POST' },
+    { action: 'create', entity: 'pet', path: '/pet', method: 'POST' },
+    { action: 'fetch', entity: 'pet', path: '/pet/{petId}', method: 'GET' },
+    { action: 'create', entity: 'order', path: '/store/order', method: 'POST' }
+  ];
 
-  if (targetPath && targetMethod) {
-    const match = endpoints.find(ep => ep.path === targetPath && ep.method === targetMethod);
-    if (match) return match;
+  for (const r of rules) {
+    if (r.action === action && (!r.entity || r.entity === entity)) {
+      const match = endpoints.find(ep => ep.path === r.path && ep.method === r.method);
+      if (match) return match;
+    }
   }
+
   return null;
 }
 
-// STEP 4 - SCORING ENGINE
-function scoreEndpoint(intent, endpoint) {
-  let score = 0;
-  
-  // +3 -> entity match in path
-  if (intent.entity !== 'unknown' && endpoint.path.toLowerCase().includes(intent.entity)) {
-    score += 3;
-  }
-  
-  // +3 -> correct HTTP method
-  if (endpoint.method === intent.httpMethod) {
-    score += 3;
-  }
-  
-  // +2 -> path contains parameter ({id}) when fetching
-  if (intent.action === 'fetch' && endpoint.path.includes('{')) {
-    score += 2;
-  }
-  
-  // +2 -> summary/description contains action keyword
-  const summaryDesc = ((endpoint.summary || "") + " " + (endpoint.description || "")).toLowerCase();
-  if (intent.action !== 'unknown' && summaryDesc.includes(intent.action)) {
-    score += 2;
-  }
-  
-  // +1 -> partial keyword match
-  const matchedKeywords = [];
-  const qTokens = tokenize(`${intent.action} ${intent.entity}`);
-  const epTokens = new Set(tokenize(endpoint.indexText));
-  qTokens.forEach(word => {
-    if (epTokens.has(word)) {
-      score += 1;
-      matchedKeywords.push(word);
-    }
-  });
+// ---------------- 🔥 STRICT FILTER ----------------
+function strictFilterEndpoints(endpoints, intent) {
+  let filtered = endpoints;
 
-  return { score, matchedKeywords };
+  // Method filter
+  filtered = filtered.filter(ep => ep.method === intent.httpMethod);
+
+  // Entity filter
+  if (intent.entity !== "unknown") {
+    filtered = filtered.filter(ep =>
+      ep.path.toLowerCase().includes(intent.entity)
+    );
+  }
+
+  // Action-specific logic
+  if (intent.action === "create") {
+    filtered = filtered.filter(ep => !ep.path.includes("{"));
+  }
+
+  if (intent.action === "fetch") {
+    filtered = filtered.filter(ep =>
+      ep.path.includes("{") || ep.path.includes("find")
+    );
+  }
+
+  return filtered.length > 0 ? filtered : endpoints;
 }
 
-// STEP 6 - KEYWORD BOOSTING
-function applyBoosting(promptText, endpoint, score) {
-  const text = promptText.toLowerCase();
-  if (text.includes("login") && endpoint.path === "/user/login") score += 5;
-  if (text.includes("upload") && endpoint.path.includes("upload")) score += 5;
-  if (text.includes("inventory") && endpoint.path === "/store/inventory") score += 5;
+// ---------------- SCORING ----------------
+function scoreEndpoint(intent, endpoint) {
+  let score = 0;
+
+  // 🔥 ACTION BOOST
+  if (intent.action === 'create' && endpoint.method === 'POST') score += 5;
+  if (intent.action === 'fetch' && endpoint.method === 'GET') score += 3;
+  if (intent.action === 'delete' && endpoint.method === 'DELETE') score += 5;
+
+  // ENTITY MATCH
+  if (intent.entity !== 'unknown' && endpoint.path.includes(intent.entity)) {
+    score += 3;
+  } else {
+    score -= 3; // penalty
+  }
+
+  // SUMMARY MATCH
+  const text = ((endpoint.summary || "") + " " + (endpoint.description || "")).toLowerCase();
+  if (text.includes(intent.action)) score += 2;
+
   return score;
 }
 
+// ---------------- BOOSTING ----------------
+function applyBoosting(prompt, endpoint, score) {
+  const text = prompt.toLowerCase();
+
+  if (text.includes("add") && endpoint.method === "POST") score += 4;
+  if (text.includes("create") && endpoint.method === "POST") score += 4;
+  if (text.includes("delete") && endpoint.method === "DELETE") score += 4;
+
+  return score;
+}
+
+// ---------------- MAIN FUNCTION ----------------
 async function mapBulkPrompts(prompts, endpoints) {
   const indexedEndpoints = endpoints.map(ep => ({
     ...ep,
-    indexText: [ep.method, ep.path, ep.summary || "", ep.description || "", ...(ep.tags || [])].join(" ").toLowerCase()
+    indexText: [ep.method, ep.path, ep.summary || "", ep.description || ""].join(" ").toLowerCase()
   }));
 
   const results = [];
-  const seenTests = new Set();
+  const seen = new Set();
 
   for (const promptText of prompts) {
     if (!promptText) continue;
 
-    let aiIntent = await normalizeWithAI(promptText);
+    const aiIntent = await normalizeWithAI(promptText);
     const intent = aiIntent || extractIntent(promptText);
 
     let bestMatch = null;
-    let maxScore = 0;
-    let bestMatchedKeywords = [];
-    
-    // STEP 7 - DEBUG METADATA Prep
-    let mappingReason = "";
-    let confidenceLabel = "LOW";
-    let status = "UNMAPPED";
+    let maxScore = -Infinity;
 
-    // STEP 2 - HARD RULE ENGINE
+    // HARD RULE
     const hardMatch = applyHardRules(intent, indexedEndpoints);
 
     if (hardMatch) {
       bestMatch = hardMatch;
-      status = "MAPPED";
-      confidenceLabel = "HIGH";
-      mappingReason = "Matched via Hard Rule Engine";
     } else {
-      // STEP 3 - METHOD FILTERING
-      let filteredEndpoints = indexedEndpoints.filter(ep => ep.method === intent.httpMethod);
-      if (filteredEndpoints.length === 0) {
-        filteredEndpoints = indexedEndpoints; // fallback to all
-      }
+      const filtered = strictFilterEndpoints(indexedEndpoints, intent);
 
-      // STEP 5 - BEST MATCH SELECTION
-      for (const ep of filteredEndpoints) {
-        let { score, matchedKeywords } = scoreEndpoint(intent, ep);
-        
-        // STEP 6 - KEYWORD BOOSTING
+      for (const ep of filtered) {
+        let score = scoreEndpoint(intent, ep);
         score = applyBoosting(promptText, ep, score);
 
         if (score > maxScore) {
           maxScore = score;
           bestMatch = ep;
-          bestMatchedKeywords = matchedKeywords;
         }
-      }
-
-      if (maxScore >= 5) {
-        status = "MAPPED";
-        confidenceLabel = "HIGH";
-        mappingReason = `Matched via Scoring Engine (score: ${maxScore}) with tokens: ${bestMatchedKeywords.join(", ")}`;
-      } else if (maxScore >= 3) {
-        status = "MAPPED";
-        confidenceLabel = "MEDIUM";
-        mappingReason = `Partial match via Scoring Engine (score: ${maxScore}) with tokens: ${bestMatchedKeywords.join(", ")}`;
-      } else {
-        // score < 3 -> UNMAPPED
-        status = "UNMAPPED";
-        mappingReason = "Low confidence mapping (score < 3). No strong keyword overlap found.";
       }
     }
 
-    const debugLog = {
-      testCase: promptText,
-      intent: `${intent.action}:${intent.entity}`,
-      httpMethod: intent.httpMethod,
-      isNegative: intent.isNegative,
-      confidenceLabel,
-      source: aiIntent ? "AI-POWERED" : "FALLBACK",
-      mappingReason,
-      status: status
-    };
-
-    if (status === "MAPPED" && bestMatch) {
-      const testKey = `${bestMatch.method}:${bestMatch.path}:${intent.isNegative}`;
-      if (seenTests.has(testKey)) continue;
-      seenTests.add(testKey);
+    if (bestMatch) {
+      const key = `${bestMatch.method}-${bestMatch.path}-${intent.isNegative}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
 
       results.push({
         endpoint: bestMatch.path,
@@ -270,19 +255,17 @@ async function mapBulkPrompts(prompts, endpoints) {
         type: intent.isNegative ? "negative" : "positive",
         caseName: promptText,
         source: 'csv',
-        debug: debugLog,
         requestSchema: bestMatch.requestSchema
       });
     } else {
       results.push({
         endpoint: "UNMAPPED",
         status: "UNMAPPED",
-        caseName: promptText,
-        source: 'csv',
-        debug: debugLog
+        caseName: promptText
       });
     }
   }
+
   return results;
 }
 

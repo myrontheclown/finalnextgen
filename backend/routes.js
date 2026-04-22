@@ -7,7 +7,8 @@ const xlsx = require('xlsx');
 const { fetchSpec } = require('./services/swaggerFetcher');
 const { parseSpec } = require('./services/parser');
 const { generateTests } = require('./services/testGenerator');
-const { executeTest } = require('./services/executor');
+const { executeTest, fetchAuthToken } = require('./services/executor');
+const authConfig = require('./config/auth');
 const { validateResponse } = require('./services/validator');
 
 const router = express.Router();
@@ -104,6 +105,14 @@ router.post('/auto-generate', upload.single('tests'), async (req, res) => {
       petId: 1,
       orderId: 1
     };
+
+    if (authConfig.type === "bearer" && !authConfig.bearer.token) {
+      const token = await fetchAuthToken(parsed.baseUrl);
+      if (token) {
+        authConfig.bearer.token = token;
+      }
+    }
+
     const validationResults = [];
     for (const test of allTestCases) {
       if (test.status === "UNMAPPED") {
