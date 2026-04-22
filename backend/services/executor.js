@@ -104,6 +104,7 @@ async function executeTest(test, baseUrl, context = {}) {
       actualStatus: response.status,
       responseTime,
       responseData: response.data,
+      responseSchema: test.responseSchema, // ✅ ATTACH SCHEMA
       authUsed: authConfig.type,
       edgeCaseApplied: test.type === "negative" // ✅ BONUS
     };
@@ -113,6 +114,7 @@ async function executeTest(test, baseUrl, context = {}) {
       ...test,
       actualStatus: 500,
       error: error.message,
+      responseSchema: test.responseSchema,
       authUsed: authConfig.type,
       edgeCaseApplied: test.type === "negative"
     };

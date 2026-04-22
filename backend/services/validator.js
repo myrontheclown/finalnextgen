@@ -1,24 +1,45 @@
+const { validateSchema } = require('./schemaValidator');
+
 function validateResponse(result) {
   const status = result.actualStatus;
-  const type = result.type || "positive"; // default safety
+  const type = result.type || "positive";
 
-  // 🟢 POSITIVE TESTS
+  let validated;
+
+  // 🟢 POSITIVE
   if (type === "positive") {
-    if (status >= 200 && status < 300) {
-      return { ...result, status: "PASS" };
-    }
-    return { ...result, status: "FAIL" }; // ❌ real failure
+    validated = status >= 200 && status < 300
+      ? { ...result, status: "PASS" }
+      : { ...result, status: "FAIL" };
   }
 
-  // 🔴 NEGATIVE TESTS
+  // 🔴 NEGATIVE
   if (type === "negative") {
-    if (status >= 400) {
-      return { ...result, status: "EXPECTED_FAIL" }; // ✅ correct behavior
-    }
-    return { ...result, status: "FAIL" }; // ❌ should have failed but didn’t
+    validated = status >= 400
+      ? { ...result, status: "EXPECTED_FAIL" }
+      : { ...result, status: "FAIL" };
   }
 
-  return { ...result, status: "FAIL" };
+  if (!validated) validated = { ...result, status: "FAIL" };
+
+  // 🧠 SCHEMA VALIDATION (ALWAYS RUN)
+  let schemaResult = { valid: true, errors: [] };
+
+  if (result.responseData && result.responseSchema) {
+    schemaResult = validateSchema(result.responseData, result.responseSchema);
+    console.log("🧪 SCHEMA VALIDATION:", schemaResult);
+  }
+
+  // ❌ Override ONLY for positive tests
+  if (type === "positive" && !schemaResult.valid) {
+    return {
+      ...validated,
+      status: "FAIL",
+      schemaErrors: schemaResult.errors
+    };
+  }
+
+  return validated;
 }
 
 module.exports = { validateResponse };
