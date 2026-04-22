@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { generateFromSchema } = require('./dataFactory');
+const { generateEdgeCases } = require('./edgeCaseGenerator'); // ✅ NEW
 const authConfig = require('../config/auth');
 
 // 🔧 Helper: safely join baseUrl + endpoint
@@ -15,13 +16,11 @@ function buildFullUrl(baseUrl, endpoint) {
 
 async function executeTest(test, baseUrl, context = {}) {
   try {
-    // 🧠 1. Build FULL URL
     let url = buildFullUrl(baseUrl, test.endpoint);
 
-    // 🔗 2. Inject path params
+    // 🔗 Path params
     url = injectPathParams(url, context);
 
-    // ⚙️ 3. Request config
     const config = {
       method: (test.method || "GET").toLowerCase(),
       url,
@@ -31,7 +30,7 @@ async function executeTest(test, baseUrl, context = {}) {
       }
     };
 
-    // 🔐 4. LOGIN handling
+    // 🔐 Login handling
     if (url.includes("/user/login")) {
       config.params = {
         ...(config.params || {}),
@@ -40,26 +39,35 @@ async function executeTest(test, baseUrl, context = {}) {
       };
     }
 
-    // 🧬 5. Payload handling
+    // 🧬 ✅ UPDATED PAYLOAD BLOCK (EDGE CASE ADDED)
     if (["post", "put", "patch"].includes(config.method)) {
+      let payload;
+
       if ((!test.payload || Object.keys(test.payload).length === 0) && test.requestSchema) {
-        config.data = generateFromSchema(test.requestSchema);
+        payload = generateFromSchema(test.requestSchema);
       } else {
-        config.data = test.payload || generateSafePayload(test.endpoint);
+        payload = test.payload || generateSafePayload(test.endpoint);
       }
+
+      // 🔥 EDGE CASE LOGIC
+      if (test.type === "negative") {
+        payload = generateEdgeCases(payload, test.requestSchema);
+        console.log("⚠️ EDGE CASE APPLIED:", payload);
+      }
+
+      config.data = payload;
     }
 
-    // 🛡️ 6. Apply Authentication
+    // 🛡️ Auth
     applyAuth(config);
 
-    // 🔐 AUTH DEBUG (FINAL VERSION)
+    // 🔐 Debug
     console.log("🔐 AUTH STATE:", {
       type: authConfig.type,
       headers: config.headers,
       params: config.params || {}
     });
 
-    // 🚀 EXECUTION DEBUG
     console.log("🚀 EXECUTING:", {
       method: config.method,
       url: config.url,
@@ -68,13 +76,10 @@ async function executeTest(test, baseUrl, context = {}) {
     });
 
     const start = Date.now();
-
-    // 🔁 7. Retry system
     const response = await executeWithRetry(() => axios(config), 2);
-
     const responseTime = Date.now() - start;
 
-    // 🔗 8. Context capture (IMPROVED)
+    // 🔗 Context capture
     if (response.data) {
       if (response.data.id) {
         if (url.includes('/pet')) context.petId = response.data.id;
@@ -99,7 +104,8 @@ async function executeTest(test, baseUrl, context = {}) {
       actualStatus: response.status,
       responseTime,
       responseData: response.data,
-      authUsed: authConfig.type
+      authUsed: authConfig.type,
+      edgeCaseApplied: test.type === "negative" // ✅ BONUS
     };
 
   } catch (error) {
@@ -107,12 +113,13 @@ async function executeTest(test, baseUrl, context = {}) {
       ...test,
       actualStatus: 500,
       error: error.message,
-      authUsed: authConfig.type
+      authUsed: authConfig.type,
+      edgeCaseApplied: test.type === "negative"
     };
   }
 }
 
-// 🧬 Safe fallback payloads
+// 🔧 Payload fallback
 function generateSafePayload(endpoint) {
   if (endpoint.includes("/user")) {
     return {
@@ -158,7 +165,7 @@ function injectPathParams(url, context) {
     .replace(/{orderId}/g, context.orderId || "1");
 }
 
-// 🔁 Retry logic
+// 🔁 Retry
 async function executeWithRetry(fn, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
@@ -181,7 +188,7 @@ async function executeWithRetry(fn, retries = 2) {
   }
 }
 
-// 🛡️ AUTH ENGINE (SAFE)
+// 🔐 Auth
 function applyAuth(config) {
   if (authConfig.type === "apiKey") {
     if (authConfig.apiKey.in === "header") {
@@ -209,7 +216,6 @@ function applyAuth(config) {
   return config;
 }
 
-// 🔐 TOKEN FETCH (FOR DEMO)
 async function fetchAuthToken(baseUrl) {
   try {
     await axios.get(buildFullUrl(baseUrl, "/user/login"), {

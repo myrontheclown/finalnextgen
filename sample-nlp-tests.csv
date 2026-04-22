@@ -1,14 +1,3 @@
 TestCase
-Create user successfully
-Fetch user by username
-Delete user successfully
-Login should fail with wrong password
 Add new pet successfully
-Fetch pet by valid ID
-Delete pet successfully
-Add pet with missing name should fail
-Place order successfully
-Fetch order by valid ID
-Delete order successfully
-Retrieve store inventory
-Perform unknown operation
+Add pet with invalid name
