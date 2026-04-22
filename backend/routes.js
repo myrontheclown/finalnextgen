@@ -16,6 +16,7 @@ if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== "your_openai_ap
 }
 
 // 1. Upload & Parse OpenAPI Spec (Supports File or remote URL)
+router.get('/ping', (req, res) => res.json({ message: 'pong' }));
 router.post('/upload-spec', upload.single('spec'), async (req, res) => {
   try {
     let apiObj;
@@ -30,16 +31,16 @@ router.post('/upload-spec', upload.single('spec'), async (req, res) => {
       }
     } else if (req.file) {
       try {
-         apiObj = await SwaggerParser.dereference(req.file.path);
-      } catch(err) {
-         const rawData = fs.readFileSync(req.file.path, 'utf8');
-         apiObj = JSON.parse(rawData);
+        apiObj = await SwaggerParser.dereference(req.file.path);
+      } catch (err) {
+        const rawData = fs.readFileSync(req.file.path, 'utf8');
+        apiObj = JSON.parse(rawData);
       }
-      fs.unlinkSync(req.file.path);
+      try { fs.unlinkSync(req.file.path); } catch(e) {}
     } else {
       return res.status(400).json({ error: "No schema file or URL provided" });
     }
-    
+
     let endpoints = [];
     let isSynthesized = false;
 
@@ -96,7 +97,7 @@ router.post('/upload-spec', upload.single('spec'), async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    if (req.file && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch(e) {} }
     res.status(500).json({ error: "Schema Integration Failed: Neural parser could not resolve the document structure." });
   }
 });
@@ -176,7 +177,7 @@ router.post('/upload-excel', upload.single('tests'), async (req, res) => {
     // Step 2: Logic - If standard headers aren't found, use AI to map
     let detectedMapping = {};
     const standardKeys = ['endpoint', 'method', 'payload', 'expectedStatus'];
-    
+
     // Heuristic first
     standardKeys.forEach(key => {
       const found = headers.find(h => mapping[key].some(m => h.toLowerCase().includes(m.toLowerCase())));
@@ -186,9 +187,9 @@ router.post('/upload-excel', upload.single('tests'), async (req, res) => {
     // AI Refinement & Synthesis
     let isSynthesized = false;
     if ((!detectedMapping.endpoint || !detectedMapping.method) && openai) {
-       try {
-         const dataSample = JSON.stringify(rawData[0]).slice(0, 1000);
-         const prompt = `
+      try {
+        const dataSample = JSON.stringify(rawData[0]).slice(0, 1000);
+        const prompt = `
          TASK: Synthesize API test vectors from this raw dataset.
          HEADERS: ${headers.join(', ')}
          SAMPLE DATA: ${dataSample}
@@ -202,22 +203,22 @@ router.post('/upload-excel', upload.single('tests'), async (req, res) => {
          
          EXAMPLE: [name, age] -> {"endpoint": "/users", "method": "POST", "payloadMapping": ["name", "age"]}
          `;
-         const response = await openai.chat.completions.create({
-           model: "gpt-4o-mini",
-           messages: [{ role: "system", content: "You are a Neural Data Synchronizer." }, { role: "user", content: prompt }],
-           temperature: 0
-         });
-         const cleanSynthesis = response.choices[0].message.content.replace(/```json|```/g, "").trim();
-         const aiSynthesis = JSON.parse(cleanSynthesis);
-         
-         // Apply synthesis
-         if (!detectedMapping.endpoint) detectedMapping.endpoint = "ai_generated";
-         if (!detectedMapping.method) detectedMapping.method = "ai_generated";
-         
-         // Store synthesis metadata for the map loop
-         detectedMapping.synthesis = aiSynthesis;
-         isSynthesized = true;
-       } catch (err) { console.warn("Excel AI Mapping/Synthesis failed."); }
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "system", content: "You are a Neural Data Synchronizer." }, { role: "user", content: prompt }],
+          temperature: 0
+        });
+        const cleanSynthesis = response.choices[0].message.content.replace(/```json|```/g, "").trim();
+        const aiSynthesis = JSON.parse(cleanSynthesis);
+
+        // Apply synthesis
+        if (!detectedMapping.endpoint) detectedMapping.endpoint = "ai_generated";
+        if (!detectedMapping.method) detectedMapping.method = "ai_generated";
+
+        // Store synthesis metadata for the map loop
+        detectedMapping.synthesis = aiSynthesis;
+        isSynthesized = true;
+      } catch (err) { console.warn("Excel AI Mapping/Synthesis failed."); }
     }
 
     // Final Mapping
@@ -245,11 +246,11 @@ router.post('/upload-excel', upload.single('tests'), async (req, res) => {
       };
     });
 
-    if (req.file) fs.unlinkSync(req.file.path);
+    if (req.file) { try { fs.unlinkSync(req.file.path); } catch(e) {} }
     res.json(testCases);
   } catch (err) {
     console.error(err);
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    if (req.file && fs.existsSync(req.file.path)) { try { fs.unlinkSync(req.file.path); } catch(e) {} }
     res.status(500).json({ error: "Failed to parse CSV/Excel file" });
   }
 });
@@ -266,9 +267,9 @@ function parsePayload(payloadStr) {
 function injectChainedVariables(dataRaw, chainContext) {
   let str = typeof dataRaw === 'object' ? JSON.stringify(dataRaw) : String(dataRaw);
   for (const [key, value] of Object.entries(chainContext)) {
-     // replace {{variableName}}
-     const regex = new RegExp(`{{${key}}}`, 'g');
-     str = str.replace(regex, value);
+    // replace {{variableName}}
+    const regex = new RegExp(`{{${key}}}`, 'g');
+    str = str.replace(regex, value);
   }
   try {
     return JSON.parse(str);
@@ -280,12 +281,12 @@ function injectChainedVariables(dataRaw, chainContext) {
 // 3. Execute Tests ENGINE (FULLY DYNAMIC: Base URL, Environments, and Auth)
 router.post('/run-tests', async (req, res) => {
   try {
-    const { tests, baseUrl, bearerToken, apiKey } = req.body; 
+    const { tests, baseUrl, bearerToken, apiKey } = req.body;
     if (!tests || !Array.isArray(tests)) return res.status(400).json({ error: "Invalid payload" });
 
     const results = [];
     const chainContext = {}; // Stores dynamic chained variables like {{token}}
-    
+
     // Default fallback if baseUrl is missing (not recommended for dynamic use)
     const effectiveBaseUrl = baseUrl || "http://localhost:3000";
 
@@ -295,14 +296,14 @@ router.post('/run-tests', async (req, res) => {
       let actualStatus = null;
       let responseData = null;
       let errorDetail = null;
+      let targetUrl = "UNKNOWN";
 
       try {
         // Step 1: Inject Chained Variables into payload/endpoint
         const dynamicEndpoint = typeof test.endpoint === 'string' ? injectChainedVariables(test.endpoint, chainContext) : test.endpoint;
         const dynamicPayload = test.payload ? injectChainedVariables(test.payload, chainContext) : undefined;
-        
+
         // Robust URL Construction
-        let targetUrl;
         try {
           if (dynamicEndpoint.startsWith('http')) {
             targetUrl = dynamicEndpoint;
@@ -312,20 +313,20 @@ router.post('/run-tests', async (req, res) => {
             targetUrl = `${base}${endpoint}`;
           }
         } catch (urlErr) {
-            targetUrl = `${effectiveBaseUrl}/${dynamicEndpoint}`;
+          targetUrl = `${effectiveBaseUrl}/${dynamicEndpoint}`;
         }
 
         // Construct Headers
-        const headers = { 
+        const headers = {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         };
-        
+
         if (bearerToken) {
-           headers['Authorization'] = bearerToken.startsWith('Bearer') ? bearerToken : `Bearer ${bearerToken}`;
+          headers['Authorization'] = bearerToken.startsWith('Bearer') ? bearerToken : `Bearer ${bearerToken}`;
         }
         if (apiKey) {
-           headers['X-API-Key'] = apiKey;
+          headers['X-API-Key'] = apiKey;
         }
 
         // Construct Axios config
@@ -335,7 +336,7 @@ router.post('/run-tests', async (req, res) => {
           headers,
           data: dynamicPayload,
           timeout: 10000, // 10s timeout for stability
-          validateStatus: () => true 
+          validateStatus: () => true
         };
 
         const response = await axios(config);
@@ -344,9 +345,9 @@ router.post('/run-tests', async (req, res) => {
 
         // Step 2: Extract variables for future chaining! (e.g. login tokens)
         if (typeof responseData === 'object' && responseData !== null) {
-           if (responseData.token) chainContext['token'] = responseData.token;
-           if (responseData.access_token) chainContext['access_token'] = responseData.access_token;
-           if (responseData.id) chainContext['id'] = responseData.id;
+          if (responseData.token) chainContext['token'] = responseData.token;
+          if (responseData.access_token) chainContext['access_token'] = responseData.access_token;
+          if (responseData.id) chainContext['id'] = responseData.id;
         }
 
         // Validate Status
@@ -359,7 +360,7 @@ router.post('/run-tests', async (req, res) => {
         else if (err.code === 'ECONNREFUSED') errorDetail = "CONNECTION REFUSED: Is the server running?";
         else if (err.code === 'ETIMEDOUT') errorDetail = "REQUEST TIMED OUT: Server took too long.";
         else errorDetail = err.message;
-        
+
         responseData = { error: errorDetail };
       }
 
@@ -381,10 +382,10 @@ router.post('/run-tests', async (req, res) => {
         const db = admin.firestore();
         const batchRef = db.collection('testExecutions').doc(Date.now().toString());
         const formattedTestResults = results.map(r => ({
-           endpoint: r.endpoint,
-           status: r.status,
-           response: typeof r.response === 'object' ? JSON.stringify(r.response) : r.response,
-           timestamp: new Date().toISOString()
+          endpoint: r.endpoint,
+          status: r.status,
+          response: typeof r.response === 'object' ? JSON.stringify(r.response) : r.response,
+          timestamp: new Date().toISOString()
         }));
         await batchRef.set({ testResults: formattedTestResults, targetBaseUrl: effectiveBaseUrl });
       }
@@ -400,10 +401,10 @@ router.post('/run-tests', async (req, res) => {
 // 4. Natural Language Processing Endpoint
 router.post('/nlp-suggest', async (req, res) => {
   try {
-     if (!openai) return res.status(503).json({ error: "OpenAI is not configured. Missing API Key." });
-     
-     const { promptStr } = req.body;
-     const prompt = `
+    if (!openai) return res.status(503).json({ error: "OpenAI is not configured. Missing API Key." });
+
+    const { promptStr } = req.body;
+    const prompt = `
      You are an API testing assistant. A user provided this natural language prompt: "${promptStr}".
      Convert this sentence into a structured JSON test case exactly matching this schema:
      { "endpoint": "url_path", "method": "GET/POST/PUT/DELETE", "payload": { /* if applicable */ }, "expectedStatus": 200/400/etc }
@@ -421,7 +422,7 @@ router.post('/nlp-suggest', async (req, res) => {
     res.json({ testCase });
   } catch (err) {
     console.error("NLP Error:", err.message);
-    res.status(500).json({ error: "Failed to process natural language string."});
+    res.status(500).json({ error: "Failed to process natural language string." });
   }
 });
 
@@ -453,4 +454,108 @@ router.post('/ai-suggest', async (req, res) => {
   }
 });
 
+// 6. Static Data Tester Endpoint
+router.post('/fetch-data', async (req, res) => {
+  try {
+    const { url } = req.body;
+
+    if (!url) {
+      return res.status(400).json({
+        error: "No URL provided"
+      });
+    }
+
+    console.log("🌐 Fetching URL:", url);
+
+    let response;
+    try {
+      response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 10000,
+        validateStatus: () => true
+      });
+    } catch (err) {
+      return res.status(400).json({
+        error: "Failed to reach URL. Ensure it is public and accessible."
+      });
+    }
+
+    const contentType = response.headers['content-type'] || '';
+    console.log("📦 Content-Type:", contentType);
+
+    // Detect type
+    const isJson =
+      contentType.includes('application/json') ||
+      url.endsWith('.json');
+
+    const isCsv =
+      contentType.includes('text/csv') ||
+      contentType.includes('application/vnd.ms-excel') ||
+      url.endsWith('.csv');
+
+    // 🚫 Detect HTML (common mistake)
+    if (contentType.includes('text/html')) {
+      return res.status(400).json({
+        error: "Invalid source: URL returned HTML instead of JSON/CSV. Use raw data URLs (e.g., raw.githubusercontent.com)."
+      });
+    }
+
+    // 🧠 HANDLE JSON
+    if (isJson) {
+      let data;
+      try {
+        const jsonString = response.data.toString('utf8');
+        data = JSON.parse(jsonString);
+      } catch (parseErr) {
+        return res.status(400).json({
+          error: "Invalid JSON format. The response could not be parsed."
+        });
+      }
+
+      const isArray = Array.isArray(data);
+
+      return res.json({
+        success: true,
+        type: "json",
+        length: isArray ? data.length : 1,
+        preview: isArray ? data.slice(0, 5) : data,
+        message: "JSON data fetched successfully"
+      });
+    }
+
+    // 📊 HANDLE CSV
+    if (isCsv) {
+      try {
+        const workbook = xlsx.read(response.data, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        return res.json({
+          success: true,
+          type: "csv",
+          rows: data.length,
+          columns: data.length > 0 ? Object.keys(data[0]) : [],
+          preview: data.slice(0, 5),
+          message: "CSV parsed successfully"
+        });
+      } catch (csvErr) {
+        return res.status(400).json({
+          error: "CSV parsing failed. Ensure the file format is valid."
+        });
+      }
+    }
+
+    // ❌ Unsupported
+    return res.status(400).json({
+      error: "Unsupported format. Only JSON and CSV URLs are allowed."
+    });
+
+  } catch (err) {
+    console.error("🔥 Static Data Fetch Error:", err.message);
+
+    res.status(500).json({
+      error: "Internal server error while fetching data"
+    });
+  }
+});
 module.exports = router;

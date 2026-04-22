@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, CheckCircle, XCircle, ChevronRight, Zap, Loader2, Key, Globe, BrainCircuit, Plus, Terminal, ShieldCheck, Link } from "lucide-react";
+import { Play, CheckCircle, XCircle, ChevronRight, Zap, Loader2, Key, Globe, BrainCircuit, Plus, Terminal, ShieldCheck, Link, Database, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "http://localhost:5001/api";
 
 export default function Dashboard() {
   const [specData, setSpecData] = useState(null);
@@ -20,6 +20,11 @@ export default function Dashboard() {
   const [activeEnv, setActiveEnv] = useState("custom");
   const [nlpInput, setNlpInput] = useState("");
   const [isNlpGenerating, setIsNlpGenerating] = useState(false);
+
+  const [staticUrl, setStaticUrl] = useState("");
+  const [staticData, setStaticData] = useState(null);
+  const [staticLoading, setStaticLoading] = useState(false);
+  const [staticError, setStaticError] = useState(null);
 
   useEffect(() => {
     const sData = sessionStorage.getItem("specData");
@@ -67,6 +72,21 @@ export default function Dashboard() {
       console.error(err);
       alert("Execution Engine: Failed to initialize routing vectors.");
       setIsRunning(false);
+    }
+  };
+
+  const fetchStaticData = async () => {
+    if (!staticUrl) return;
+    setStaticLoading(true);
+    setStaticError(null);
+    setStaticData(null);
+    try {
+      const res = await axios.post(`${API_BASE}/fetch-data`, { url: staticUrl });
+      setStaticData(res.data);
+    } catch (err) {
+      setStaticError(err.response?.data?.error || "Failed to fetch static data.");
+    } finally {
+      setStaticLoading(false);
     }
   };
 
@@ -317,6 +337,96 @@ export default function Dashboard() {
             </table>
           </div>
         </motion.div>
+      </motion.div>
+
+      {/* STATIC DATA TESTER */}
+      <motion.div variants={itemVariants} className="glass-panel p-6 flex flex-col gap-6 border-emerald-500/20 shadow-[0_0_50px_rgba(16,185,129,0.08)] bg-gradient-to-br from-emerald-500/5 to-transparent relative z-20">
+         <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] flex items-center gap-2">
+              <Database className="w-3 h-3" /> Static Data Tester (JSON + CSV)
+            </h3>
+            {staticData && (
+               <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                 Format Detected: {staticData.type.toUpperCase()}
+               </span>
+            )}
+         </div>
+
+         <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="relative flex-1 w-full">
+               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500/50" />
+               <input 
+                 type="text" 
+                 value={staticUrl}
+                 onChange={(e) => setStaticUrl(e.target.value)}
+                 onKeyDown={(e) => e.key === 'Enter' && fetchStaticData()}
+                 placeholder="Enter direct URL (e.g., https://example.com/data.json)" 
+                 className="w-full bg-[#020617]/50 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white font-mono text-[12px] focus:border-emerald-500/50 focus:shadow-[0_0_20px_rgba(16,185,129,0.1)] outline-none transition-all"
+               />
+            </div>
+            <motion.button 
+               whileHover={{ scale: 1.02 }}
+               whileTap={{ scale: 0.98 }}
+               onClick={fetchStaticData}
+               disabled={staticLoading || !staticUrl}
+               className="w-full sm:w-auto px-8 py-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-black rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-2 border border-emerald-500/30 text-xs uppercase tracking-widest whitespace-nowrap"
+            >
+               {staticLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />} 
+               Fetch Data
+            </motion.button>
+         </div>
+
+         {staticError && (
+            <div className="text-red-400 text-xs bg-red-500/10 p-3 rounded-lg border border-red-500/20 font-mono flex items-center gap-2">
+               <XCircle className="w-4 h-4" /> {staticError}
+            </div>
+         )}
+
+         {staticData && staticData.type === 'json' && (
+            <div className="bg-[#020617]/80 rounded-xl p-4 border border-emerald-500/10 overflow-hidden">
+               <div className="flex items-center justify-between mb-3 border-b border-emerald-500/10 pb-2">
+                  <span className="text-xs text-slate-400 uppercase font-black tracking-widest">Preview (First 5)</span>
+                  <span className="text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded">Total Items: {staticData.length}</span>
+               </div>
+               <pre className="text-[11px] text-emerald-300 font-mono overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
+                 {JSON.stringify(staticData.preview || staticData.data, null, 2)}
+               </pre>
+            </div>
+         )}
+
+         {staticData && staticData.type === 'csv' && (
+            <div className="bg-[#020617]/80 rounded-xl p-4 border border-emerald-500/10 overflow-hidden flex flex-col gap-3">
+               <div className="flex items-center justify-between border-b border-emerald-500/10 pb-2">
+                  <span className="text-xs text-slate-400 uppercase font-black tracking-widest">Table Preview</span>
+                  <span className="text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded">Total Rows: {staticData.rows}</span>
+               </div>
+               <div className="flex flex-wrap gap-2 mb-2">
+                  {staticData.columns.map((col, idx) => (
+                    <span key={idx} className="text-[10px] bg-slate-800 text-slate-300 px-2 py-1 rounded border border-white/5 font-mono">{col}</span>
+                  ))}
+               </div>
+               <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left text-xs text-slate-300 min-w-max">
+                    <thead className="text-slate-500 uppercase font-black text-[9px] tracking-widest bg-emerald-500/5">
+                      <tr>
+                        {staticData.columns.map((col, idx) => (
+                           <th key={idx} className="px-4 py-2 border-b border-emerald-500/10">{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {(staticData.preview || staticData.data || []).map((row, rIdx) => (
+                         <tr key={rIdx} className="hover:bg-white/5 transition-colors">
+                           {staticData.columns.map((col, cIdx) => (
+                              <td key={cIdx} className="px-4 py-3 font-mono text-slate-400 max-w-[200px] truncate">{row[col] !== undefined && row[col] !== null ? String(row[col]) : ''}</td>
+                           ))}
+                         </tr>
+                      ))}
+                    </tbody>
+                  </table>
+               </div>
+            </div>
+         )}
       </motion.div>
 
       {/* LIVE EXECUTION OVERLAY - TERMINAL STYLE */}

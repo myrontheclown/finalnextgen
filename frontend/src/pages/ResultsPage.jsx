@@ -3,7 +3,7 @@ import { CheckCircle, XCircle, BrainCircuit, Clock, Zap, AlertTriangle, Download
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "http://localhost:5001/api";
 
 // Simple CountUp Hook specifically for the hackathon WOW factor
 function useCountUp(end, duration = 1500) {
