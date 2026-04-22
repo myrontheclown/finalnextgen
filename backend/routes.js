@@ -28,9 +28,19 @@ router.post('/upload-spec', upload.single('spec'), async (req, res) => {
 
 router.post('/auto-generate', upload.single('tests'), async (req, res) => {
   try {
-    const { specUrl } = req.body;
+    const { specUrl, env } = req.body;
     const rawSpec = await fetchSpec(specUrl);
     const parsed = await parseSpec(rawSpec);
+    const { getBaseUrl } = require('./config/environments');
+
+    // 🎯 Determine Base URL
+    const selectedBaseUrl = env
+      ? getBaseUrl(env)
+      : parsed.baseUrl;
+
+    // 🌍 DEBUG LOGS
+    console.log("🌍 ENV SELECTED:", env || "default");
+    console.log("🌍 BASE URL:", selectedBaseUrl);
 
     // 1. Auto-Generate
     const autoTestCases = generateTests(parsed.endpoints).map(t => ({ ...t, source: 'auto' }));
@@ -107,7 +117,7 @@ router.post('/auto-generate', upload.single('tests'), async (req, res) => {
     };
 
     if (authConfig.type === "bearer" && !authConfig.bearer.token) {
-      const token = await fetchAuthToken(parsed.baseUrl);
+      const token = await fetchAuthToken(selectedBaseUrl);
       if (token) {
         authConfig.bearer.token = token;
       }
@@ -119,9 +129,13 @@ router.post('/auto-generate', upload.single('tests'), async (req, res) => {
         validationResults.push({ ...test, status: "UNMAPPED" });
         continue;
       }
-      const execResult = await executeTest(test, parsed.baseUrl, context);
+      const execResult = await executeTest(test, selectedBaseUrl, context);
       const validated = validateResponse(execResult);
-      validationResults.push({ ...validated, source: test.source || 'auto' });
+      validationResults.push({ 
+        ...validated, 
+        source: test.source || 'auto',
+        environment: env || "default" // ✅ BONUS
+      });
     }
 
     // 5. Build Report
