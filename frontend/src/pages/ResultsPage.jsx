@@ -17,7 +17,7 @@ const ResultsPage = () => {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-        <p className="text-xs font-black text-gray-500 uppercase tracking-[0.3em]">Decoding Neural Report...</p>
+        <p className="text-xs font-black text-gray-500 uppercase tracking-[0.3em]">Preparing test results...</p>
       </div>
     );
   }
@@ -34,7 +34,7 @@ const ResultsPage = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "neural_diagnostic_report.json");
+    downloadAnchorNode.setAttribute("download", "test_results.json");
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -45,17 +45,17 @@ const ResultsPage = () => {
       {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
         <div className="space-y-2">
-          <h2 className="text-6xl font-black glow-text tracking-tighter uppercase">Neural <span className="glow-text-primary">Diagnostic</span></h2>
-          <p className="text-gray-500 font-medium text-lg">In-depth behavioral analysis of dispatched test vectors.</p>
+          <h2 className="text-6xl font-black glow-text tracking-tighter uppercase">Test <span className="glow-text-primary">Results</span></h2>
+          <p className="text-gray-500 font-medium text-lg">Review the results of your recent tests.</p>
         </div>
         <div className="flex gap-4">
           <button onClick={downloadReport} className="neon-btn-secondary px-6 flex items-center gap-2">
             <Download className="h-4 w-4" />
-            EXPORT DATA
+            DOWNLOAD RESULTS
           </button>
           <button onClick={() => navigate('/')} className="neon-btn px-10 flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
-            NEW SESSION
+            NEW PROJECT
           </button>
         </div>
       </div>
@@ -77,13 +77,13 @@ const ResultsPage = () => {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-3xl font-black text-white leading-none">{summary.successRate}%</span>
-              <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-1">Reliability</span>
+              <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-1">Score</span>
             </div>
           </div>
           <div className="space-y-2">
-            <h3 className="text-xl font-black text-white uppercase tracking-tighter">Global Integrity Index</h3>
+            <h3 className="text-xl font-black text-white uppercase tracking-tighter">Overall Health</h3>
             <p className="text-xs text-gray-500 font-medium leading-relaxed">
-              Consolidated health metric based on PASS + EXPECTED_FAIL ratios across all reachable neural endpoints.
+              How your API performed across all tests.
             </p>
           </div>
         </div>
@@ -117,7 +117,7 @@ const ResultsPage = () => {
             ))}
           </div>
           <div className="text-[10px] font-black text-gray-700 uppercase tracking-widest">
-             Records Displayed: {filteredResults.length} / {results.length}
+            Tests Shown: {filteredResults.length} / {results.length}
           </div>
         </div>
 
@@ -152,7 +152,7 @@ const ResultsPage = () => {
 
                 <div className="flex items-center gap-6">
                   <div className="text-right hidden sm:block">
-                    <p className="text-[10px] font-black text-gray-700 uppercase tracking-widest">Latency</p>
+                    <p className="text-[10px] font-black text-gray-700 uppercase tracking-widest">Response Time</p>
                     <p className="text-sm font-black text-white">{r.responseTime}ms</p>
                   </div>
                   <div className={`p-2 rounded-xl bg-white/5 border border-white/5 transition-transform ${expandedId === i ? 'rotate-180 text-primary' : 'text-gray-700'}`}>
@@ -166,24 +166,24 @@ const ResultsPage = () => {
                   <div className="grid lg:grid-cols-2 gap-8 mt-4">
                     <div className="space-y-6">
                       <div className="space-y-2">
-                        <p className="text-[10px] font-black text-primary uppercase tracking-widest ml-1">Payload Analysis</p>
+                        <p className="text-[10px] font-black text-primary uppercase tracking-widest ml-1">Request Data</p>
                         <div className="bg-black/40 rounded-2xl p-5 border border-white/5 font-mono text-xs text-gray-400 overflow-x-auto">
                           {JSON.stringify(r.payload || {}, null, 2)}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                          <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                            <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Response Code</p>
+                            <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Status Code</p>
                             <p className={`text-xl font-black ${r.actualStatus === r.expectedStatus ? 'text-cyan' : 'text-error'}`}>{r.actualStatus}</p>
                          </div>
                          <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
                             <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Source</p>
-                            <p className="text-sm font-black text-white uppercase tracking-tighter">{r.source || 'NEURAL'}</p>
+                            <p className="text-sm font-black text-white uppercase tracking-tighter">{r.source || 'AUTO'}</p>
                          </div>
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <p className="text-[10px] font-black text-accent uppercase tracking-widest ml-1">Terminal Response Matrix</p>
+                      <p className="text-[10px] font-black text-accent uppercase tracking-widest ml-1">Response Body</p>
                       <div className="bg-black/60 rounded-2xl p-6 border border-white/10 h-full max-h-[300px] overflow-y-auto scrollbar-hide">
                         <pre className="text-[11px] text-cyan/80 font-mono leading-relaxed">
                           {JSON.stringify(r.responseData || {}, null, 2)}

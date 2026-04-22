@@ -53,10 +53,10 @@ export default function Dashboard() {
             <Cpu className="w-10 h-10 text-primary animate-pulse" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-3xl font-black text-white uppercase tracking-tighter">Workspace Uninitialized</h3>
-            <p className="text-gray-500 max-w-sm font-medium">Neural engine is awaiting API blueprint. Please bridge a specification to begin.</p>
+            <h3 className="text-3xl font-black text-white uppercase tracking-tighter">No Project Found</h3>
+            <p className="text-gray-500 max-w-sm font-medium">Please add your Swagger URL to start testing.</p>
           </div>
-          <button onClick={() => navigate("/")} className="neon-btn px-10">INITIALIZE BRIDGE</button>
+          <button onClick={() => navigate("/")} className="neon-btn px-10">Start Project</button>
         </motion.div>
       </div>
     );
@@ -69,21 +69,21 @@ export default function Dashboard() {
       {/* HEADER SECTION */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
         <div className="space-y-2">
-           <h2 className="text-6xl font-black glow-text tracking-tighter uppercase">Analytics <span className="glow-text-primary">Console</span></h2>
+           <h2 className="text-6xl font-black glow-text tracking-tighter uppercase">Dashboard <span className="glow-text-primary">Console</span></h2>
            <p className="text-gray-500 font-bold flex items-center gap-3 uppercase tracking-widest text-xs">
              <span className="w-2 h-2 rounded-full bg-cyan shadow-[0_0_10px_rgba(0,255,163,0.8)] animate-pulse" />
-             Neural Link Established • {baseUrl}
+             Connection Active • {baseUrl}
            </p>
         </div>
         <div className="flex gap-4">
-          <button className="neon-btn-secondary px-6">DOWNLOAD JSON</button>
+          <button className="neon-btn-secondary px-6">DOWNLOAD DATA</button>
           <button
             onClick={runTests}
             disabled={isRunning}
             className="neon-btn px-10 flex items-center gap-3"
           >
             {isRunning ? <Loader2 className="animate-spin h-5 w-5" /> : <Zap className="h-5 w-5 fill-current" />}
-            {isRunning ? "PROCESSING..." : "RERUN SUITE"}
+            {isRunning ? "Running..." : "Run All Tests"}
           </button>
         </div>
       </div>
@@ -93,16 +93,16 @@ export default function Dashboard() {
          <div className="lg:col-span-7 glass-panel p-8 space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2">
-                <Globe className="w-3 h-3" /> Target Vector Resolution
+                <Globe className="w-3 h-3" /> Environment
               </h3>
               <select 
                  className="bg-black/60 text-primary border border-primary/20 rounded-lg px-3 py-1.5 text-[10px] font-black outline-none cursor-pointer"
                  value={activeEnv}
                  onChange={(e) => setActiveEnv(e.target.value)}
               >
-                 <option value="dev">LOCAL INSTANCE</option>
-                 <option value="staging">STAGING CLUSTER</option>
-                 <option value="prod">PRODUCTION CORE</option>
+                 <option value="dev">Development</option>
+                 <option value="staging">Staging</option>
+                 <option value="prod">Production</option>
               </select>
             </div>
             
@@ -116,7 +116,7 @@ export default function Dashboard() {
                />
                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 text-[9px] font-black tracking-widest text-primary">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  RESOLVED
+                  Connected
                </div>
             </div>
          </div>
@@ -124,7 +124,7 @@ export default function Dashboard() {
          {/* Security */}
          <div className="lg:col-span-5 glass-panel p-8 space-y-6">
             <h3 className="text-[10px] font-black text-pink uppercase tracking-[0.3em] flex items-center gap-2">
-              <ShieldCheck className="w-3 h-3" /> Identity Vault
+              <ShieldCheck className="w-3 h-3" /> Security Keys
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -159,7 +159,7 @@ export default function Dashboard() {
         {/* Endpoints List */}
         <div className="lg:col-span-4 glass-panel p-6 space-y-4">
           <h3 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] pb-2 border-b border-white/5">
-            Interface Registry
+            API Endpoints
           </h3>
           <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2 scrollbar-hide">
             {endpoints.map((ep, i) => (
@@ -180,10 +180,10 @@ export default function Dashboard() {
         {/* Vector Matrix */}
         <div className="lg:col-span-8 glass-panel overflow-hidden flex flex-col">
           <div className="px-8 py-6 bg-black/40 border-b border-white/5 flex items-center justify-between">
-             <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Execution Matrix</h3>
+             <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Test Cases</h3>
              <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-cyan" />
-                <span className="text-[9px] font-black text-cyan uppercase tracking-widest">Neural Chaining Active</span>
+                <span className="text-[9px] font-black text-cyan uppercase tracking-widest">Hybrid Mode Active</span>
              </div>
           </div>
           <div className="overflow-x-auto p-4">
@@ -191,8 +191,8 @@ export default function Dashboard() {
               <thead>
                 <tr className="text-[10px] text-gray-700 uppercase tracking-widest font-black border-b border-white/5">
                   <th className="px-6 py-4">Method</th>
-                  <th className="px-6 py-4">Vector Path</th>
-                  <th className="px-6 py-4 text-right">Target Response</th>
+                  <th className="px-6 py-4">Endpoint Path</th>
+                  <th className="px-6 py-4 text-right">Expected Response</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -236,20 +236,20 @@ export default function Dashboard() {
                        <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
                        <div className="w-3 h-3 rounded-full bg-cyan/50" />
                      </div>
-                     <span className="ml-4 font-mono text-[10px] text-primary font-black uppercase tracking-[0.2em]">Neural Dispatch Shell</span>
+                     <span className="ml-4 font-mono text-[10px] text-primary font-black uppercase tracking-[0.2em]">Test Execution Output</span>
                   </div>
                   <div className="p-10 space-y-4 font-mono text-sm h-[500px] overflow-y-auto bg-black/40">
                     <div className="text-primary font-bold animate-pulse">
-                       &gt; Initializing neural execution framework...<br/>
-                       &gt; Establishing encrypted sandbox perimeter... OK<br/>
-                       &gt; Calibrating environment vectors... OK<br/>
+                       &gt; Initializing tests...<br/>
+                       &gt; Setting up environment... OK<br/>
+                       &gt; Checking configuration... OK<br/>
                     </div>
                     {liveResults.map((r, i) => (
                       <motion.div
                         key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} 
                         className="flex items-center gap-6 text-gray-500 border-b border-white/5 pb-2"
                       >
-                         <span className="text-[10px] font-black text-gray-700">VECTOR_{i+100}</span>
+                         <span className="text-[10px] font-black text-gray-700">TEST_{i+1}</span>
                          <span className="font-black text-white w-12">{r.method}</span>
                          <span className="flex-1 truncate text-gray-400 text-xs">{r.endpoint}</span>
                          <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${r.status === 'PASS' ? 'text-cyan bg-cyan/10' : 'text-error bg-error/10'}`}>
@@ -258,9 +258,9 @@ export default function Dashboard() {
                       </motion.div>
                     ))}
                     <div className="text-cyan font-bold pt-8 animate-pulse">
-                       &gt; Sequence completed successfully.<br/>
-                       &gt; Analyzing neural fingerprints...<br/>
-                       &gt; Preparing visual breakdown...
+                       &gt; Tests completed.<br/>
+                       &gt; Analyzing results...<br/>
+                       &gt; Generating report...
                     </div>
                   </div>
               </div>

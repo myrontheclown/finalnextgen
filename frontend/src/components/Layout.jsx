@@ -21,9 +21,9 @@ export default function Layout() {
   }, []);
 
   const navItems = [
-    { name: "Bridge", path: "/", icon: Upload },
-    { name: "Analytics", path: "/dashboard", icon: LayoutDashboard },
-    { name: "Neural Results", path: "/results", icon: FileText },
+    { name: "Connect", path: "/", icon: Upload },
+    { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+    { name: "Test Results", path: "/results", icon: FileText },
   ];
 
   return (
@@ -53,14 +53,14 @@ export default function Layout() {
       <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 group cursor-pointer">
-            <div className="p-2 bg-primary/20 rounded-xl border border-primary/30 group-hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] transition-all">
-              <Activity className="h-6 w-6 text-primary" />
+            <div className="p-2.5 bg-primary/20 rounded-2xl border border-primary/40 group-hover:shadow-[0_0_30px_rgba(0,255,157,0.7)] transition-all duration-500">
+              <Activity className="h-6 w-6 text-primary filter drop-shadow-[0_0_8px_rgba(0,255,157,0.8)]" />
             </div>
             <div>
-              <h1 className="text-xl font-black glow-text-primary uppercase tracking-tighter">
+              <h1 className="text-2xl font-black glow-text-primary uppercase tracking-tighter leading-none">
                 TestGen AI
               </h1>
-              <p className="text-[10px] text-gray-500 font-bold tracking-[0.2em] uppercase -mt-1">Neural Bridge</p>
+              <p className="text-[9px] text-gray-400 font-black tracking-[0.3em] uppercase mt-1 opacity-80">API Testing made simple</p>
             </div>
           </div>
           
@@ -90,8 +90,8 @@ export default function Layout() {
           </nav>
 
           <div className="flex items-center gap-4">
-             <div className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
-             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Network Stable</span>
+             <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(0,255,157,0.8)]" />
+             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">System Ready</span>
           </div>
         </div>
       </header>
@@ -103,7 +103,7 @@ export default function Layout() {
 
       <footer className="py-8 text-center border-t border-white/5 relative z-10">
         <p className="text-[10px] font-bold text-gray-600 uppercase tracking-[0.4em]">
-          Powered by NextGen Neural Suite • v3.0.4
+          Powered by TestGen AI • v3.0.4
         </p>
       </footer>
     </div>

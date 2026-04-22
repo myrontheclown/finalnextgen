@@ -59,13 +59,13 @@ const UploadPage = () => {
       <header className="text-center space-y-4">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-black uppercase tracking-widest mb-4">
           <Sparkles className="h-3 w-3" />
-          Autonomous Engine Active
+          System Ready
         </div>
         <h1 className="text-7xl font-black tracking-tighter glow-text">
-          TestGen <span className="glow-text-primary">AI Bridge</span>
+          TestGen <span className="glow-text-primary">AI</span>
         </h1>
         <p className="text-gray-500 text-lg max-w-xl mx-auto font-medium">
-          Step-by-Step Neural API Testing • Spec Driven Intelligence
+          Step-by-step API Testing made simple
         </p>
       </header>
 
@@ -83,7 +83,7 @@ const UploadPage = () => {
               {step > s ? <CheckCircle className="h-6 w-6" /> : s}
             </div>
             <p className={`absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-colors duration-500 ${step >= s ? 'text-primary' : 'text-gray-700'}`}>
-              Phase 0{s}
+              Step {s}
             </p>
           </div>
         ))}
@@ -97,22 +97,22 @@ const UploadPage = () => {
           </div>
         )}
 
-        {/* STEP 1: INGEST */}
+        {/* STEP 1: ADD URL */}
         {step === 1 && (
           <div className="space-y-10 animate-in fade-in slide-in-from-right-12 duration-700">
             <div className="space-y-2">
               <h2 className="text-4xl font-black flex items-center gap-3">
                 <Globe className="text-primary h-8 w-8" />
-                Step 1: Ingest Specification
+                Step 1: Add Swagger URL
               </h2>
-              <p className="text-gray-500 font-medium">Establish a neural bridge by providing your OpenAPI/Swagger definition.</p>
+              <p className="text-gray-500 font-medium">Enter your Swagger/OpenAPI URL to start testing.</p>
             </div>
 
             <div className="flex gap-4 p-3 bg-black/40 rounded-2xl border border-white/5 focus-within:border-primary/50 transition-all">
               <input
                 type="text"
                 className="flex-1 bg-transparent px-5 py-4 text-white font-medium focus:outline-none placeholder:text-gray-700"
-                placeholder="https://api.domain.com/v2/swagger.json"
+                placeholder="Paste your Swagger URL here..."
                 value={specUrl}
                 onChange={(e) => setSpecUrl(e.target.value)}
               />
@@ -121,7 +121,7 @@ const UploadPage = () => {
                 disabled={loading}
                 className="neon-btn flex items-center gap-2 group disabled:opacity-50"
               >
-                {loading ? 'CALIBRATING...' : 'ANALYZE SPEC'}
+                {loading ? 'Processing...' : 'Analyze API'}
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
@@ -133,14 +133,14 @@ const UploadPage = () => {
                   <UploadIcon className="h-8 w-8 text-gray-500 group-hover:text-primary transition-colors" />
                 </div>
                 <div className="text-center">
-                  <p className="text-gray-400 font-bold">Or drag and drop your Spec (JSON/YAML) here</p>
-                  <p className="text-xs text-gray-600 mt-1 uppercase tracking-widest">Local Neural Interface</p>
+                  <p className="text-gray-400 font-bold">Or drag and drop your Swagger file here</p>
+                  <p className="text-xs text-gray-600 mt-1 uppercase tracking-widest">Upload local file</p>
                 </div>
                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setSpecFile(e.target.files[0])} />
                 {specFile && (
                   <div className="mt-4 px-4 py-2 bg-primary/20 border border-primary/30 rounded-xl text-primary font-mono text-xs flex items-center gap-2">
                     <FileJson className="h-4 w-4" />
-                    LINKED: {specFile.name}
+                    Uploaded: {specFile.name}
                   </div>
                 )}
               </div>
@@ -155,9 +155,9 @@ const UploadPage = () => {
               <div className="space-y-2">
                 <h2 className="text-4xl font-black flex items-center gap-3">
                   <Zap className="text-accent h-8 w-8" />
-                  Step 2: Endpoint Discovery
+                  Step 2: View API Endpoints
                 </h2>
-                <p className="text-gray-500 font-medium">Mapped and indexed the API structure for semantic testing.</p>
+                <p className="text-gray-500 font-medium">We've found the following endpoints in your API.</p>
               </div>
               <div className="px-4 py-2 bg-accent/10 rounded-xl border border-accent/20 text-accent font-mono text-xs font-bold">
                 {parsedSpec.baseUrl}
@@ -168,7 +168,7 @@ const UploadPage = () => {
               {[
                 { label: 'Endpoints Found', val: parsedSpec.endpoints.length, color: 'primary' },
                 { label: 'Schemas Mapped', val: Object.keys(parsedSpec.schemas || {}).length, color: 'accent' },
-                { label: 'Auth Configuration', val: parsedSpec.authType || "MODULAR", color: 'cyan' },
+                { label: 'Auth Configuration', val: parsedSpec.authType || "Auto", color: 'cyan' },
               ].map((stat, i) => (
                 <div key={i} className="glass-card flex flex-col gap-2 group">
                   <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest">{stat.label}</p>
@@ -184,9 +184,9 @@ const UploadPage = () => {
                 <table className="w-full text-left">
                   <thead className="sticky top-0 bg-black/60 backdrop-blur-md z-10">
                     <tr className="text-[10px] text-gray-600 uppercase tracking-widest font-black">
-                      <th className="pb-4">Protocol</th>
-                      <th className="pb-4">Interface Path</th>
-                      <th className="pb-4 text-right">Semantic Index</th>
+                      <th className="pb-4">Method</th>
+                      <th className="pb-4">Endpoint Path</th>
+                      <th className="pb-4 text-right">Description</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 text-sm">
@@ -202,7 +202,7 @@ const UploadPage = () => {
                           </span>
                         </td>
                         <td className="py-4 font-mono text-gray-400 group-hover:text-white transition-colors">{ep.path}</td>
-                        <td className="py-4 text-right text-gray-600 text-xs italic group-hover:text-gray-400">{ep.summary || "RAW ENDPOINT"}</td>
+                        <td className="py-4 text-right text-gray-600 text-xs italic group-hover:text-gray-400">{ep.summary || "No description"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -214,27 +214,27 @@ const UploadPage = () => {
               onClick={() => setStep(3)}
               className="neon-btn w-full py-5 text-xl flex items-center justify-center gap-3"
             >
-              INITIALIZE NEURAL LAYERS
+              Setup Tests
               <ArrowRight className="h-6 w-6" />
             </button>
           </div>
         )}
 
-        {/* STEP 3: INTELLIGENCE */}
+        {/* STEP 3: GENERATION */}
         {step === 3 && (
           <div className="space-y-12 animate-in fade-in slide-in-from-right-12 duration-700 text-center">
             <div className="space-y-2">
-              <h2 className="text-5xl font-black glow-text">Step 3: Intelligence Generation</h2>
+              <h2 className="text-5xl font-black glow-text">Step 3: Generate Test Cases</h2>
               <p className="text-gray-500 max-w-2xl mx-auto font-medium">
-                Trigger the AI to generate schema-driven test vectors and map your natural language test cases.
+                Choose how you want to generate your test cases.
               </p>
             </div>
 
             <div className="grid grid-cols-3 gap-8">
               {[
-                { id: 'auto', title: 'Fully Autonomous', desc: 'Pure schema discovery & fuzzing.', color: 'from-primary/20 to-primary/5' },
-                { id: 'hybrid', title: 'Hybrid Neural', desc: 'Auto + Natural Language Mapping.', color: 'from-accent/20 to-accent/5' },
-                { id: 'nlp', title: 'NLP Vectors', desc: 'User-Defined Semantic Prompts.', color: 'from-pink/20 to-pink/5' },
+                { id: 'auto', title: 'AI Mode', desc: 'Automatically test all endpoints.', color: 'from-primary/20 to-primary/5' },
+                { id: 'hybrid', title: 'Hybrid Mode', desc: 'Combine auto tests with your custom prompts.', color: 'from-accent/20 to-accent/5' },
+                { id: 'nlp', title: 'User Mode', desc: 'Test using only your custom prompts.', color: 'from-pink/20 to-pink/5' },
               ].map((m) => (
                 <div 
                   key={m.id}
@@ -265,15 +265,15 @@ const UploadPage = () => {
                 <div className="relative group">
                   <div className="absolute -inset-1 bg-gradient-to-r from-primary to-pink rounded-3xl blur opacity-10 group-hover:opacity-30 transition duration-500"></div>
                   <div className="relative bg-black/40 p-8 rounded-3xl border border-white/5 border-dashed flex flex-col items-center gap-3 cursor-pointer hover:bg-black/60 transition-all">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-[0.2em]">Upload Test Prompts (.csv, .xlsx, .json)</p>
+                    <p className="text-xs font-black text-gray-500 uppercase tracking-[0.2em]">Upload your test cases (.csv, .xlsx, .json)</p>
                     <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setTestFile(e.target.files[0])} />
                     {testFile ? (
                       <div className="px-4 py-1.5 bg-cyan/20 border border-cyan/30 rounded-lg text-cyan font-mono text-xs flex items-center gap-2">
                         <CheckCircle className="h-3 w-3" />
-                        LINKED: {testFile.name}
+                        Uploaded: {testFile.name}
                       </div>
                     ) : (
-                      <p className="text-[10px] text-gray-700 font-bold uppercase">Required for semantic mapping</p>
+                      <p className="text-[10px] text-gray-700 font-bold uppercase">Required for custom testing</p>
                     )}
                   </div>
                 </div>
@@ -287,7 +287,7 @@ const UploadPage = () => {
                 className="neon-btn px-16 py-6 text-2xl tracking-tighter disabled:opacity-50 relative overflow-hidden group"
               >
                 <span className="relative z-10 flex items-center gap-4">
-                  {loading ? 'MODULATING VECTORS...' : 'LAUNCH NEURAL SUITE'}
+                  {loading ? 'Running tests...' : 'Run All Tests'}
                   <Zap className="h-6 w-6 fill-current" />
                 </span>
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
@@ -296,7 +296,7 @@ const UploadPage = () => {
           </div>
         )}
 
-        {/* STEP 4: LAUNCH */}
+        {/* STEP 4: REDIRECT */}
         {step === 4 && (
           <div className="flex-1 flex flex-col items-center justify-center py-20 text-center space-y-10 animate-in zoom-in fade-in duration-1000">
             <div className="relative">
@@ -306,14 +306,14 @@ const UploadPage = () => {
               </div>
             </div>
             <div className="space-y-4">
-              <h2 className="text-6xl font-black tracking-tighter">Neural Suite Dispatched</h2>
+              <h2 className="text-6xl font-black tracking-tighter">Test Setup Complete</h2>
               <p className="text-gray-500 text-xl font-medium">
-                Autonomous system has initiated validation sequence.
+                Your tests are being executed. Redirecting you to the results.
               </p>
             </div>
             <div className="flex items-center gap-2 px-6 py-3 rounded-full bg-black/60 border border-white/5">
               <div className="w-2 h-2 rounded-full bg-cyan animate-ping" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan">Navigating to Dashboard</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan">Going to results</span>
             </div>
           </div>
         )}
